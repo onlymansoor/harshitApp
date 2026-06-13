@@ -31,23 +31,26 @@ app.secret_key = os.urandom(32)
 
 try:
     from keyauth import api
-except ImportError as e:
-    print(f"\n[ERROR] Dependency Issue: {e}")
-    os.kill(os.getpid(), 9)
+except Exception as e:
+    print(f"[WARNING] KeyAuth not available: {e}")
+    api = None
 
 APP_NAME = "CRZ FREE PANEL"
 OWNER_ID = "EckNXwLHE7"
 VERSION = "1.0"
     
-try:
-    keyauthapp = api(
-        name=APP_NAME,
-        ownerid=OWNER_ID,
-        version=VERSION,
-        hash_to_check="" 
-    )
-except Exception as e:
-    print(f"[WARNING] KeyAuth setup failed: {e}")
+keyauthapp = None
+if api is not None:
+    try:
+        keyauthapp = api(
+            name=APP_NAME,
+            ownerid=OWNER_ID,
+            version=VERSION,
+            hash_to_check=""
+        )
+    except Exception as e:
+        print(f"[WARNING] KeyAuth setup failed: {e}")
+        keyauthapp = None
 
 CONFIG_FILE = "config.json"
 
@@ -552,12 +555,15 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        try:
-            keyauthapp.login(username, password)
-            session['admin_authed'] = True
-            return redirect(url_for('admin'))
-        except (KeyAuthExitBypass, Exception):
-            error = "don't try u mother fucker"
+        if keyauthapp is None:
+            error = "Authentication system unavailable"
+        else:
+            try:
+                keyauthapp.login(username, password)
+                session['admin_authed'] = True
+                return redirect(url_for('admin'))
+            except Exception:
+                error = "Invalid credentials"
                 
     return render_template_string(LOGIN_TEMPLATE, error=error), 200, {'Content-Type': 'text/html'}
 
